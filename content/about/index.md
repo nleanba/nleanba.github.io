@@ -12,3 +12,5 @@ math = false
 +++
 
 This is very much a work in progress ·_·
+
+[Go look at my github](https://github.com/nleanba)
