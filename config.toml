@@ -73,7 +73,7 @@ paginate = 5
     words = "words"
 
     [languages.en.params.logo]
-      logoText = "·_·"
+      logoText = "·_· [→ Go Home]"
       logoHomeLink = "/"
 
     [languages.en.menu]
@@ -81,3 +81,7 @@ paginate = 5
         identifier = "about"
         name = "About"
         url = "/about"
+      [[languages.en.menu.main]]
+        identifier = "gh"
+        name = "Github"
+        url = "https://github.com/nleanba"
