@@ -1,0 +1,18 @@
+<footer class="footer">
+  <div class="footer__inner">
+    <div class="copyrightr">
+      <span>© {{ now.Year }} <a href="https://github.com/nleanba/nleanba.github.io" target="_blank">nleanba</a></span>
+        <span>:: Powered by <a href="http://gohugo.io">Hugo</a></span>
+        <span>:: Theme based on <a href="https://github.com/panr/hugo-theme-terminal" target="_blank">this one</a></span>
+    </div>
+</footer>
+
+{{ $menu := resources.Get "js/menu.js" | js.Build }}
+{{ $prism := resources.Get "js/prism.js" | js.Build }}
+
+{{ $bundle := slice $menu $prism | resources.Concat "bundle.js" | resources.Minify }}
+
+<script type="text/javascript" src="{{ $bundle.RelPermalink }}"></script>
+
+<!-- Extended footer section-->
+{{ partial "extended_footer.html" . }}

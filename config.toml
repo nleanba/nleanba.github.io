@@ -1,7 +1,7 @@
 baseURL = '/'
 languageCode = 'en-us'
 title = '·_·'
-theme = 'terminal'
+theme = 'terminal-2'
 paginate = 5
 
 [params]
@@ -32,7 +32,7 @@ paginate = 5
   # set post to show the last updated
   # If you use git, you can set `enableGitInfo` to `true` and then post will automatically get the last updated
   enableGitInfo = true
-  showLastUpdated = false
+  showLastUpdated = true
 
   # set a custom favicon (default is a `themeColor` square)
   # favicon = "favicon.ico"
