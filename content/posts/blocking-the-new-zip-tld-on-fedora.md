@@ -1,8 +1,9 @@
 +++
 title = "Blocking the new .zip TLD on Fedora"
-date = "2023-05-20T19:12:32+02:00"
+date = "2023-05-23T22:53:14+02:00"
 author = "nleanba"
 tags = ["linux"]
+keywords = []
 description = "An attempt to block the new TLD"
 showFullContent = false
 readingTime = true
@@ -18,11 +19,9 @@ Because it seems like it might provide some (idk) security benefits, and because
 
 # How:
 
-This is the hard part that I’m not sure I fully figured out...
+Trying to do so using the bind-DNS server
 
-This is documenting what I did so far:
-
-1. Installing bind9:
+1. Installing bind:
 
     ```shell
     dnf install bind
@@ -30,64 +29,55 @@ This is documenting what I did so far:
 
 2. Updating/Creating various Config files:
 
-    {{< code language="shell" lang="file" title="/etc/hosts (pointless)" line-numbers="true" start="8" >}}
-# ...
-# Does not work
-127.0.0.1  *.zip
-::1        *.zip{{< /code >}}
-    {{< code language="shell" lang="file" title="/etc/bindresvport.blacklist (unchanged)" line-numbers="true" isCollapsed="true" >}}
-#
-# This file contains a list of port numbers between 600 and 1024,
-# which should not be used by bindresvport. bindresvport is mostly
-# called by RPC services. This mostly solves the problem, that a
-# RPC service uses a well known port of another service.
-#
-623     # ASF, used by IPMI on some cards
-631     # cups
-636     # ldaps
-664     # Secure ASF, used by IPMI on some cards
-749     # Kerberos V kadmin
-774     # rpasswd
-873     # rsyncd
-921     # lwresd
-992     # SSL-enabled telnet
-993     # imaps
-994     # irc
-995     # pops{{< /code >}}
-    {{< code language="c" title="/etc/named.conf" lang="file" line-numbers="true" line="32-33, 48-51" >}}
+    {{< code language="c" title="/etc/named.conf" lang="replaced" line-numbers="true" >}}
 //
-// ...
+// named.conf
+//
+// Provided by Red Hat bind package to configure the ISC BIND named(8) DNS
+// server as a caching only nameserver (as a localhost DNS resolver only).
+//
+// See /usr/share/doc/bind*/sample/ for example named configuration files.
 //
 
 options {
-    listen-on port 53 { 127.0.0.1; };
-    listen-on-v6 port 53 { ::1; };
-    directory 	"/var/named";
-    dump-file 	"/var/named/data/cache_dump.db";
-    statistics-file "/var/named/data/named_stats.txt";
-    memstatistics-file "/var/named/data/named_mem_stats.txt";
-    secroots-file	"/var/named/data/named.secroots";
-    recursing-file	"/var/named/data/named.recursing";
-    allow-query     { localhost; };
+	listen-on port 53 { 127.0.0.1; };
+	listen-on-v6 port 53 { ::1; };
+	directory 	"/var/named";
+	dump-file 	"/var/named/data/cache_dump.db";
+	statistics-file "/var/named/data/named_stats.txt";
+	memstatistics-file "/var/named/data/named_mem_stats.txt";
+	secroots-file	"/var/named/data/named.secroots";
+	recursing-file	"/var/named/data/named.recursing";
+	allow-query     { localhost; };
 
-    /*
-       ...
-    */
-    recursion yes;
+	/* 
+	 - If you are building an AUTHORITATIVE DNS server, do NOT enable recursion.
+	 - If you are building a RECURSIVE (caching) DNS server, you need to enable 
+	   recursion. 
+	 - If your recursive DNS server has a public IP address, you MUST enable access 
+	   control to limit queries to your legitimate users. Failing to do so will
+	   cause your server to become part of large scale DNS amplification 
+	   attacks. Implementing BCP38 within your network would greatly
+	   reduce such attack surface 
+	*/
+	recursion yes;
 
-    dnssec-validation yes;
+	/* nope */
+	// forwarders { 8.8.8.8; };
 
-    managed-keys-directory "/var/named/dynamic";
-    geoip-directory "/usr/share/GeoIP";
+	dnssec-validation yes;
 
-    pid-file "/run/named/named.pid";
-    session-keyfile "/run/named/session.key";
+	managed-keys-directory "/var/named/dynamic";
+	geoip-directory "/usr/share/GeoIP";
 
-    /* https://fedoraproject.org/wiki/Changes/CryptoPolicy */
-    include "/etc/crypto-policies/back-ends/bind.config";
+	pid-file "/run/named/named.pid";
+	session-keyfile "/run/named/session.key";
 
-    /* my attempt at rpz blocking of .zip TLD */
-    response-policy { zone "zip"; };
+	/* https://fedoraproject.org/wiki/Changes/CryptoPolicy */
+	include "/etc/crypto-policies/back-ends/bind.config";
+
+	/* nope */
+	// response-policy { zone "zip"; };
 };
 
 logging {
@@ -97,83 +87,63 @@ logging {
         };
 };
 
-zone "." IN {
-    type hint;
-    file "named.ca";
+zone "zip" IN {
+	type master;
+	file "zip-rpz";
+	allow-update { none; };
 };
 
-zone "zip" IN {
-    type master;
-    file "zip-rpz";
-    allow-update { none; };
+zone "." IN {
+	type hint;
+	file "named.ca";
 };
 
 include "/etc/named.rfc1912.zones";
-include "/etc/named.root.key";{{< /code >}}
-    {{< code language="dns-zone" title="/var/named/named.localhost (unchanged)" lang="file" line-numbers="true" isCollapsed="true" >}}
-$TTL 1D
-@ IN SOA     @ rname.invalid. (
-        0    ; serial
-        1D   ; refresh
-        1H   ; retry
-        1W   ; expire
-        3H ) ; minimum
-NS  @
-A   127.0.0.1
-AAAA	::1{{< /code >}}
-    {{< code language="dns-zone" title="/var/named/zip-rpz" lang="file" line-numbers="true" >}}
-; zone file for rpz blocking *.zip
-$TTL    604800
-@       SOA nonexistent.nodomain.none. dummy.nodomain.none. 1 12h 15m 3w 2h
-        NS  nonexistant.nodomain.none.
+include "/etc/named.root.key";
 
+{{< /code >}}
 
-zip CNAME .
-veryspecific.example.com CNAME .{{< /code >}}
+    {{< code language="dns-zone" title="/var/named/zip-rpz" lang="added" line-numbers="true" >}}
+$TTL 1D ; default expiration time of all RRs without their own TTL value
+@       IN  SOA     ns.zip. postmaster.ns.zip. ( 2020091025 7200 3600 1209600 3600 )
+@       IN  NS      ns1                    ; nameserver
+*       IN  A       127.0.0.1              ; localhost
+        IN  AAAA    ::                     ; localhost
+{{< /code >}}
 
-3. Applying changes
+3. Apply temporarily
 
     ```shell
-    # sudo service bind9 restart
-    # sudo service bind restart
     sudo systemctl enable named
-    sudo systemctl start named
-    systemctl status named.service
+    sudo service named restart
+    resolvectl dns wlp0s20f3 127.0.0.1
+    ```
+
+    `Note: this applies it _very_ temporarily (ca 2 mins, idk why)`
+
+    Various other commands, some useful:
+
+    ```shell
     journalctl -xeu named.service
 
-    nslookup zip
-    nslookup url.zip
+    dig url.zip
+    dig example.com
 
-    sudo service network restart
-    sudo service named restart
-    ```
-4. Cry because it has had no apparent effect
+    # ??
+    sudo firewall-cmd --add-service=dns --perm
+    sudo firewall-cmd --reload
 
-5. Next attempt
-
-    {{< code language="dns-zone" title="/var/named/zip-rpz" lang="file" line-numbers="true" >}}
-$ORIGIN zip.     ; designates the start of this zone file in the namespace
-$TTL 1D                ; default expiration time (in seconds) of all RRs without their own TTL value
-@             IN  SOA   ns.zip. zip. ( 2020091025 7200 3600 1209600 3600 )
-@             IN  NS    ns                    ; ns.example.com is a nameserver for example.com
-@             IN  A     127.0.0.1             ; IPv4 address for example.com
-              IN  AAAA  ::                    ; IPv6 address for example.com
-ns            IN  A     127.0.0.1             ; IPv4 address for ns.example.com
-              IN  AAAA  ::                    ; IPv6 address for ns.example.com
-*             IN  CNAME @                     ; www.example.com is an alias for example.com{{< /code >}}
-
-    ```shell
+    # ??
     sudo chgrp named -R /var/named
     sudo chown -v root:named /etc/named.conf
     sudo restorecon -rv /var/named
     sudo restorecon /etc/named.conf
-
-    sudo firewall-cmd --add-service=dns --perm
-    sudo firewall-cmd --reload
-    sudo service named restart
     ```
 
-    {{< code language="toml" title="/etc/systemd/resolved.conf" lang="file" line-numbers="true" >}}
+
+4. Hopefully apply persistently
+
+    {{< code language="toml" title="/etc/systemd/resolved.conf" lang="updated" line-numbers="true" line="7" >}}
 #
 # ...
 #
@@ -182,10 +152,3 @@ ns            IN  A     127.0.0.1             ; IPv4 address for ns.example.com
 # ...
 DNS=127.0.0.1
 # ...{{< /code >}}
-
-    Hoping that the above config also makes it apply on next reboot.
-    With the following it was succesfully applied temporarily:
-
-    ```shell
-    resolvectl dns wlp0s20f3 127.0.0.1
-    ```
