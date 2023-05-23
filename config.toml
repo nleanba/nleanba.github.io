@@ -1,7 +1,7 @@
 baseURL = '/'
 languageCode = 'en-us'
 title = '·_·'
-theme = 'terminal-2'
+theme = 'terminal'
 paginate = 5
 
 [params]

@@ -83,6 +83,9 @@ pre[class*="language-"] {
   pointer-events: none;
   line-height: inherit;
   white-space: pre;
+  right: 0;
+  left: 0;
+  width: unset !important;
 }
 
 .line-highlight:before,
