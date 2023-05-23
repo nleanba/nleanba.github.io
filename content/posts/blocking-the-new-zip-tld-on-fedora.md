@@ -3,7 +3,6 @@ title = "Blocking the new .zip TLD on Fedora"
 date = "2023-05-20T19:12:32+02:00"
 author = "nleanba"
 tags = ["linux"]
-keywords = ["key"]
 description = "An attempt to block the new TLD"
 showFullContent = false
 readingTime = true
