@@ -1,6 +1,6 @@
 +++
 title = "Blocking the new .zip TLD on Fedora"
-date = "2023-05-23T22:53:14+02:00"
+date = "2023-05-20T22:53:14+02:00"
 author = "nleanba"
 tags = ["linux"]
 keywords = []
@@ -15,7 +15,9 @@ math = false
 
 # What:
 
-Because it seems like it might provide some (idk) security benefits, and because it seemed like an intersting exercise, I wanted to figure out how to block any requests to a .zip url from my laptop.
+Because it seems like it might provide some (idk) security benefits, and because
+it seemed like an intersting exercise, I wanted to figure out how to block any
+requests to a .zip url from my laptop.
 
 # How:
 
@@ -29,7 +31,7 @@ Trying to do so using the bind-DNS server
 
 2. Updating/Creating various Config files:
 
-    {{< code language="c" title="/etc/named.conf" lang="replaced" line-numbers="true" >}}
+    {{< code language="c" title="/etc/named.conf" lang="updated" line-numbers="true" line="44-48" >}}
 //
 // named.conf
 //
@@ -50,23 +52,9 @@ options {
 	recursing-file	"/var/named/data/named.recursing";
 	allow-query     { localhost; };
 
-	/* 
-	 - If you are building an AUTHORITATIVE DNS server, do NOT enable recursion.
-	 - If you are building a RECURSIVE (caching) DNS server, you need to enable 
-	   recursion. 
-	 - If your recursive DNS server has a public IP address, you MUST enable access 
-	   control to limit queries to your legitimate users. Failing to do so will
-	   cause your server to become part of large scale DNS amplification 
-	   attacks. Implementing BCP38 within your network would greatly
-	   reduce such attack surface 
-	*/
 	recursion yes;
 
-	/* nope */
-	// forwarders { 8.8.8.8; };
-
 	dnssec-validation yes;
-
 	managed-keys-directory "/var/named/dynamic";
 	geoip-directory "/usr/share/GeoIP";
 
@@ -76,7 +64,7 @@ options {
 	/* https://fedoraproject.org/wiki/Changes/CryptoPolicy */
 	include "/etc/crypto-policies/back-ends/bind.config";
 
-	/* nope */
+	/* nope -- pointless */
 	// response-policy { zone "zip"; };
 };
 
@@ -106,7 +94,7 @@ include "/etc/named.root.key";
     {{< code language="dns-zone" title="/var/named/zip-rpz" lang="added" line-numbers="true" >}}
 $TTL 1D ; default expiration time of all RRs without their own TTL value
 @       IN  SOA     ns.zip. postmaster.ns.zip. ( 2020091025 7200 3600 1209600 3600 )
-@       IN  NS      ns1                    ; nameserver
+@       IN  NS      ns                     ; nameserver
 *       IN  A       127.0.0.1              ; localhost
         IN  AAAA    ::                     ; localhost
 {{< /code >}}
@@ -119,7 +107,7 @@ $TTL 1D ; default expiration time of all RRs without their own TTL value
     resolvectl dns wlp0s20f3 127.0.0.1
     ```
 
-    `Note: this applies it _very_ temporarily (ca 2 mins, idk why)`
+    _Note: this applies it_ very _temporarily (ca 2 mins, idk why)_
 
     Various other commands, some useful:
 
@@ -141,14 +129,16 @@ $TTL 1D ; default expiration time of all RRs without their own TTL value
     ```
 
 
-4. Hopefully apply persistently
+4. Apply persistently
 
-    {{< code language="toml" title="/etc/systemd/resolved.conf" lang="updated" line-numbers="true" line="7" >}}
-#
+    {{< code language="toml" title="/etc/systemd/resolved.conf" lang="updated" line-numbers="true" line="8" start="5" >}}
 # ...
-#
-
 [Resolve]
 # ...
 DNS=127.0.0.1
 # ...{{< /code >}}
+
+    After rebooting, it now “fails” to resolve any .zip url.\
+   They are redirected to `127.0.0.1` (or `::`) where nobody is listening...
+
+5. ~~Profit~~
