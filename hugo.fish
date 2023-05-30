@@ -1,3 +1,4 @@
+## this has been copied & cobbled together from somewhere else, but its convenient
 function hugo -a command
     switch $command
         # run on the local network
